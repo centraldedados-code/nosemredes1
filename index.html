@@ -211,7 +211,7 @@ h1,h2,h3,h4{font-family:'Montserrat',Arial,sans-serif}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:16px">
           <div>
             <div style="font-family:Montserrat,sans-serif;font-size:14px;font-weight:700;color:var(--az)">Nos em Rede - 2 Nucleos - 18 Cursos - 88 Turmas (23/12/2024 a 19/03/2028)</div>
-            <div style="font-size:11px;color:#888;margin-top:3px">Percentual de turmas com Lista de Presenca e Certificados depositados, entre as turmas ja com pasta criada no Drive</div>
+            <div style="font-size:11px;color:#888;margin-top:3px">Percentual de turmas com pelo menos uma evidencia depositada nas subpastas da turma; pasta vazia permanece Pendente</div>
           </div>
           <div id="sc-txt" style="font-family:Montserrat,sans-serif;font-size:44px;font-weight:700;color:var(--azs);white-space:nowrap">--</div>
         </div>
@@ -613,6 +613,9 @@ function renderPastas() {
       html += '<span class="badge ' + bcl(st) + '" style="font-size:9px;padding:2px 7px">' + st + '</span>';
       html += '</div>';
       html += '<div class="pcard-ativ">' + (r['Nome da Turma']||'-') + '</div>';
+      if (r['Observacao']) {
+        html += '<div style="font-size:10px;color:#888;line-height:1.35">' + r['Observacao'] + '</div>';
+      }
       if (lk) {
         html += '<a class="pcard-btn" href="' + lk + '" target="_blank">ABRIR PASTA</a>';
       } else {
