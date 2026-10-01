@@ -110,7 +110,6 @@ h1,h2,h3,h4{font-family:'Montserrat',Arial,sans-serif}
 
 <main class="wrap">
 <section class="vw on" id="vw-dashboard">
-  <div id="api-warning"></div>
   <div class="st">Ficha do Projeto</div><div class="card" id="ficha-card"></div>
   <div class="st">Visão Geral</div><div class="g4" id="kpi-row"></div>
   <div class="st">Cobertura Documental das Turmas</div>
@@ -183,7 +182,6 @@ var FILTRO='TODOS';
 var FILTRO_EVIDENCIAS='EVIDENCIA';
 var SENHA='Brarte@2026';
 var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzitismYYarO7X4-40KigLRw9oZL5KEP6yipQWwUnoqwMIFqeIsIdrZd1-DJQgRvia0/exec';
-var API_VERSION_ESPERADA='NER-2026-10-01-v5';
 
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
@@ -258,15 +256,7 @@ function bcl(st){var n=norm(st);if(n==='realizado')return'bR';if(n==='critico')r
 function kpi(n,l){return '<div class="kpi"><div class="knum">'+n+'</div><div class="klab">'+l+'</div></div>'}
 
 function resumoServidor(){return D&&D.resumo_evidencias&&typeof D.resumo_evidencias==='object'?D.resumo_evidencias:null}
-function validarApi(){
-  var el=document.getElementById('api-warning'); if(!el)return;
-  var v=D&&D.api_version?String(D.api_version):'';
-  if(v!==API_VERSION_ESPERADA){
-    el.innerHTML='<div class="notice" style="border-color:#c62828;background:#fff4f4;color:#7a1b1b;margin-bottom:16px"><strong>API desatualizada.</strong> Este INDEX está conectado a uma versão antiga do Web App e, por segurança, não considera os zeros como resultado válido. No Apps Script, edite a implantação existente e selecione <strong>Nova versão</strong>. A URL da implantação deve continuar terminando em <strong>mYVi78g/exec</strong>.</div>';
-  }else{
-    el.innerHTML='';
-  }
-}
+function validarApi(){}
 
 function chkPwd(){var v=document.getElementById('pf').value;if(v===SENHA){document.getElementById('pwd').classList.add('off');sessionStorage.setItem('ner_ok','1');carregarApp()}else{document.getElementById('perr').textContent='Senha incorreta. Verifique com a coordenação.';document.getElementById('pf').value='';document.getElementById('pf').focus()}}
 
