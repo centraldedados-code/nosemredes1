@@ -148,8 +148,8 @@ h1,h2,h3,h4{font-family:'Montserrat',Arial,sans-serif}
   <div class="g4 evid-kpis" id="drive-kpis"></div>
   <div class="st">Filtros de Evidência</div>
   <div class="filters">
-    <button class="fbtn on" data-evf="TODAS" onclick="setFiltroEvidencias('TODAS',this)">Todas as pastas</button>
-    <button class="fbtn" data-evf="EVIDENCIA" onclick="setFiltroEvidencias('EVIDENCIA',this)">Com evidência</button>
+    <button class="fbtn on" data-evf="EVIDENCIA" onclick="setFiltroEvidencias('EVIDENCIA',this)">Todas com evidência</button>
+    <button class="fbtn" data-evf="TODAS" onclick="setFiltroEvidencias('TODAS',this)">Todas as 88 pastas</button>
     <button class="fbtn" data-evf="FOTOS" onclick="setFiltroEvidencias('FOTOS',this)">Com fotos</button>
     <button class="fbtn" data-evf="LISTAS" onclick="setFiltroEvidencias('LISTAS',this)">Com listas</button>
     <button class="fbtn" data-evf="AMBOS" onclick="setFiltroEvidencias('AMBOS',this)">Fotos + lista</button>
@@ -179,7 +179,7 @@ h1,h2,h3,h4{font-family:'Montserrat',Arial,sans-serif}
 var D=null;
 var TERR=[];
 var FILTRO='TODOS';
-var FILTRO_EVIDENCIAS='TODAS';
+var FILTRO_EVIDENCIAS='EVIDENCIA';
 var SENHA='Brarte@2026';
 var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzvlXL9IwFBqg38OVYAlf4ACo-gDvwFzL1sQUfrYM1HC9VSV53z0f0MtJHgyygmYVi78g/exec';
 
@@ -190,8 +190,21 @@ function MT(){return D&&Array.isArray(D.metas)?D.metas:[]}
 function getv(r,k){return r&&Object.prototype.hasOwnProperty.call(r,k)?r[k]:''}
 function statusTurma(r){return String(getv(r,'Status da Turma')||'Pendente').trim()}
 function obs(r){return String(getv(r,'Observacao')||'').trim()}
+function simCampo(v){return /^(sim|s|true|1)$/i.test(String(v||'').trim())}
 function flagsEvidencia(r){
-  var s=obs(r), f={lista:false,fotos:false,ficha:false,material:false,certificados:false,foraDaPasta:false};
+  var f={lista:false,fotos:false,ficha:false,material:false,certificados:false,foraDaPasta:false};
+  var explicito = getv(r,'Tem Evidencia')!=='' || getv(r,'Tem Fotos')!=='' || getv(r,'Tem Lista de Presenca')!=='';
+  if(explicito){
+    f.lista=simCampo(getv(r,'Tem Lista de Presenca'));
+    f.fotos=simCampo(getv(r,'Tem Fotos'));
+    f.ficha=simCampo(getv(r,'Tem Ficha de Inscricao'));
+    f.material=simCampo(getv(r,'Tem Material Produzido'));
+    f.certificados=simCampo(getv(r,'Tem Certificados'));
+    f.foraDaPasta=simCampo(getv(r,'Arquivo Fora da Pasta Esperada'));
+    return f;
+  }
+
+  var s=obs(r);
   if(/EVIDENCIAS\s*\|/i.test(s)){
     f.lista=/Lista=SIM/i.test(s);
     f.fotos=/Fotos=SIM/i.test(s);
@@ -209,7 +222,11 @@ function flagsEvidencia(r){
   }
   return f;
 }
-function temEvidencia(r){var f=flagsEvidencia(r);return f.lista||f.fotos||f.ficha||f.material||f.certificados||norm(statusTurma(r))==='realizado'}
+function temEvidencia(r){
+  if(getv(r,'Tem Evidencia')!=='') return simCampo(getv(r,'Tem Evidencia'));
+  var f=flagsEvidencia(r);
+  return f.lista||f.fotos||f.ficha||f.material||f.certificados||norm(statusTurma(r))==='realizado';
+}
 function temFotos(r){return flagsEvidencia(r).fotos}
 function temLista(r){return flagsEvidencia(r).lista}
 function temAmbos(r){var f=flagsEvidencia(r);return f.fotos&&f.lista}
