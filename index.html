@@ -110,6 +110,7 @@ h1,h2,h3,h4{font-family:'Montserrat',Arial,sans-serif}
 
 <main class="wrap">
 <section class="vw on" id="vw-dashboard">
+  <div id="api-warning"></div>
   <div class="st">Ficha do Projeto</div><div class="card" id="ficha-card"></div>
   <div class="st">Visão Geral</div><div class="g4" id="kpi-row"></div>
   <div class="st">Cobertura Documental das Turmas</div>
@@ -182,50 +183,58 @@ var FILTRO='TODOS';
 var FILTRO_EVIDENCIAS='EVIDENCIA';
 var SENHA='Brarte@2026';
 var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzvlXL9IwFBqg38OVYAlf4ACo-gDvwFzL1sQUfrYM1HC9VSV53z0f0MtJHgyygmYVi78g/exec';
+var API_VERSION_ESPERADA='NER-2026-10-01-v5';
 
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
 function AT(){return D&&Array.isArray(D.atividades)?D.atividades:[]}
 function MT(){return D&&Array.isArray(D.metas)?D.metas:[]}
-function getv(r,k){return r&&Object.prototype.hasOwnProperty.call(r,k)?r[k]:''}
-function statusTurma(r){return String(getv(r,'Status da Turma')||'Pendente').trim()}
-function obs(r){return String(getv(r,'Observacao')||'').trim()}
+function chaveFlex(v){return norm(v).replace(/[^a-z0-9]/g,'')}
+function getvFlex(r,k){
+  if(!r)return '';
+  if(Object.prototype.hasOwnProperty.call(r,k))return r[k];
+  var alvo=chaveFlex(k), ks=Object.keys(r);
+  for(var i=0;i<ks.length;i++)if(chaveFlex(ks[i])===alvo)return r[ks[i]];
+  return '';
+}
+function getv(r,k){return getvFlex(r,k)}
+function statusTurma(r){return String(getvFlex(r,'Status da Turma')||getvFlex(r,'Status')||'Pendente').trim()}
+function obs(r){return String(getvFlex(r,'Observacao')||getvFlex(r,'Observação')||'').trim()}
 function simCampo(v){return /^(sim|s|true|1)$/i.test(String(v||'').trim())}
 function flagsEvidencia(r){
   var f={lista:false,fotos:false,ficha:false,material:false,certificados:false,foraDaPasta:false};
-  var explicito = getv(r,'Tem Evidencia')!=='' || getv(r,'Tem Fotos')!=='' || getv(r,'Tem Lista de Presenca')!=='';
-  if(explicito){
-    f.lista=simCampo(getv(r,'Tem Lista de Presenca'));
-    f.fotos=simCampo(getv(r,'Tem Fotos'));
-    f.ficha=simCampo(getv(r,'Tem Ficha de Inscricao'));
-    f.material=simCampo(getv(r,'Tem Material Produzido'));
-    f.certificados=simCampo(getv(r,'Tem Certificados'));
-    f.foraDaPasta=simCampo(getv(r,'Arquivo Fora da Pasta Esperada'));
-    return f;
-  }
+
+  // Nunca deixar um campo explicito "NAO" apagar uma evidencia comprovada
+  // pela Observacao da linha. As duas fontes sao combinadas.
+  f.lista=simCampo(getv(r,'Tem Lista de Presenca'));
+  f.fotos=simCampo(getv(r,'Tem Fotos'));
+  f.ficha=simCampo(getv(r,'Tem Ficha de Inscricao'));
+  f.material=simCampo(getv(r,'Tem Material Produzido'));
+  f.certificados=simCampo(getv(r,'Tem Certificados'));
+  f.foraDaPasta=simCampo(getv(r,'Arquivo Fora da Pasta Esperada'));
 
   var s=obs(r);
   if(/EVIDENCIAS\s*\|/i.test(s)){
-    f.lista=/Lista=SIM/i.test(s);
-    f.fotos=/Fotos=SIM/i.test(s);
-    f.ficha=/Ficha=SIM/i.test(s);
-    f.material=/Material=SIM/i.test(s);
-    f.certificados=/Certificados=SIM/i.test(s);
-    f.foraDaPasta=/ForaDaPasta=SIM/i.test(s);
+    f.lista=f.lista||/Lista=SIM/i.test(s);
+    f.fotos=f.fotos||/Fotos=SIM/i.test(s);
+    f.ficha=f.ficha||/Ficha=SIM/i.test(s);
+    f.material=f.material||/Material=SIM/i.test(s);
+    f.certificados=f.certificados||/Certificados=SIM/i.test(s);
+    f.foraDaPasta=f.foraDaPasta||/ForaDaPasta=SIM/i.test(s);
   }else{
-    // Compatibilidade com observacoes antigas gravadas antes da classificacao semantica.
-    f.lista=/01_Lista_de_Presenca/i.test(s);
-    f.fotos=/03_Fotos/i.test(s);
-    f.ficha=/02_Ficha_de_Inscricao/i.test(s);
-    f.material=/04_Material_Produzido_Alunos/i.test(s);
-    f.certificados=/05_Certificados/i.test(s);
+    f.lista=f.lista||/01_Lista_de_Presenca/i.test(s);
+    f.fotos=f.fotos||/03_Fotos/i.test(s);
+    f.ficha=f.ficha||/02_Ficha_de_Inscricao/i.test(s);
+    f.material=f.material||/04_Material_Produzido_Alunos/i.test(s);
+    f.certificados=f.certificados||/05_Certificados/i.test(s);
   }
   return f;
 }
 function temEvidencia(r){
-  if(getv(r,'Tem Evidencia')!=='') return simCampo(getv(r,'Tem Evidencia'));
   var f=flagsEvidencia(r);
-  return f.lista||f.fotos||f.ficha||f.material||f.certificados||norm(statusTurma(r))==='realizado';
+  return simCampo(getv(r,'Tem Evidencia'))||
+    f.lista||f.fotos||f.ficha||f.material||f.certificados||
+    norm(statusTurma(r))==='realizado';
 }
 function temFotos(r){return flagsEvidencia(r).fotos}
 function temLista(r){return flagsEvidencia(r).lista}
@@ -248,9 +257,20 @@ function scl(n){if(n>=75)return'shi';if(n>=40)return'smid';if(n>=10)return'slow'
 function bcl(st){var n=norm(st);if(n==='realizado')return'bR';if(n==='critico')return'bC';if(n==='em andamento')return'bA';return'bP'}
 function kpi(n,l){return '<div class="kpi"><div class="knum">'+n+'</div><div class="klab">'+l+'</div></div>'}
 
+function resumoServidor(){return D&&D.resumo_evidencias&&typeof D.resumo_evidencias==='object'?D.resumo_evidencias:null}
+function validarApi(){
+  var el=document.getElementById('api-warning'); if(!el)return;
+  var v=D&&D.api_version?String(D.api_version):'';
+  if(v!==API_VERSION_ESPERADA){
+    el.innerHTML='<div class="notice" style="border-color:#c62828;background:#fff4f4;color:#7a1b1b;margin-bottom:16px"><strong>API desatualizada.</strong> Este INDEX está conectado a uma versão antiga do Web App e, por segurança, não considera os zeros como resultado válido. No Apps Script, edite a implantação existente e selecione <strong>Nova versão</strong>. A URL da implantação deve continuar terminando em <strong>mYVi78g/exec</strong>.</div>';
+  }else{
+    el.innerHTML='';
+  }
+}
+
 function chkPwd(){var v=document.getElementById('pf').value;if(v===SENHA){document.getElementById('pwd').classList.add('off');sessionStorage.setItem('ner_ok','1');carregarApp()}else{document.getElementById('perr').textContent='Senha incorreta. Verifique com a coordenação.';document.getElementById('pf').value='';document.getElementById('pf').focus()}}
 
-function carregarApp(){document.getElementById('ld').classList.remove('off');fetch(APPS_SCRIPT_URL+'?action=api&_='+Date.now(),{cache:'no-store'}).then(function(resp){if(!resp.ok)throw new Error('HTTP '+resp.status);return resp.json()}).then(function(data){D=data||{};prepararTerritorios();document.getElementById('ld').classList.add('off');document.getElementById('app').classList.add('on');renderAll();iniciarAtualizacaoAutomatica();marcarAtualizacao()}).catch(function(err){console.error(err);var ld=document.getElementById('ld');ld.classList.remove('off');ld.innerHTML='<div class="card" style="max-width:560px;text-align:center;border-left:6px solid #8B1A1A"><div style="font:700 16px Montserrat;color:#8B1A1A;margin-bottom:8px">Falha temporária de conexão com o SMPC</div><div style="font-size:12px;color:#657180;line-height:1.55">Os dados não foram substituídos por zeros. Atualize a página para tentar novamente.</div></div>'})}
+function carregarApp(){document.getElementById('ld').classList.remove('off');fetch(APPS_SCRIPT_URL+'?action=api&_='+Date.now(),{cache:'no-store'}).then(function(resp){if(!resp.ok)throw new Error('HTTP '+resp.status);return resp.json()}).then(function(data){D=data||{};prepararTerritorios();validarApi();document.getElementById('ld').classList.add('off');document.getElementById('app').classList.add('on');renderAll();iniciarAtualizacaoAutomatica();marcarAtualizacao()}).catch(function(err){console.error(err);var ld=document.getElementById('ld');ld.classList.remove('off');ld.innerHTML='<div class="card" style="max-width:560px;text-align:center;border-left:6px solid #8B1A1A"><div style="font:700 16px Montserrat;color:#8B1A1A;margin-bottom:8px">Falha temporária de conexão com o SMPC</div><div style="font-size:12px;color:#657180;line-height:1.55">Os dados não foram substituídos por zeros. Atualize a página para tentar novamente.</div></div>'})}
 function prepararTerritorios(){var arr=[];AT().forEach(function(r){var t=String(getv(r,'Territorio')||'').trim();if(t&&arr.indexOf(t)===-1)arr.push(t)});TERR=arr}
 function marcarAtualizacao(){var e=document.getElementById('ultimaAtualizacaoPainel');if(e)e.textContent='Atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function goV(v,btn){document.querySelectorAll('.vw').forEach(function(e){e.classList.remove('on')});document.querySelectorAll('.nbtn').forEach(function(e){e.classList.remove('on')});document.getElementById('vw-'+v).classList.add('on');if(btn)btn.classList.add('on')}
@@ -262,8 +282,14 @@ function renderAll(){renderFicha();renderDash();renderListaT();renderAtividades(
 function renderFicha(){var c=(D&&D.config)||{};var el=document.getElementById('ficha-card');var h='<div class="ficha-grid">';h+='<div><div class="ficha-rot">Projeto</div><div class="ficha-val">'+esc(c['Nome do Projeto']||'Nós em Rede')+'</div></div>';h+='<div><div class="ficha-rot">Proponente</div><div class="ficha-val">'+esc(c['Proponente']||'Instituto BR Arte')+'</div></div>';h+='<div><div class="ficha-rot">Financiador</div><div class="ficha-val">'+esc(c['Financiador']||'Ministério da Cultura')+'</div></div>';h+='<div><div class="ficha-rot">Fim da execução</div><div class="ficha-val">'+esc(c['Fim da Execução']||'19/03/2028')+'</div></div>';h+='<div><div class="ficha-rot">Núcleos</div><div class="ficha-val">'+esc(c['Territórios']||TERR.join(', '))+'</div></div>';h+='<div><div class="ficha-rot">Turmas previstas</div><div class="ficha-val">'+esc(c['Total de Turmas']||AT().length||'88')+'</div></div>';h+='</div>';el.innerHTML=h}
 
 function renderDash(){
-  var rows=AT(), real=rows.filter(temEvidencia).length, vazias=rows.length-real;
-  var comFotos=rows.filter(temFotos).length, comLista=rows.filter(temLista).length, ambos=rows.filter(temAmbos).length;
+  var rows=AT();
+  // Calcular sempre a partir das linhas atuais de ATIVIDADES.
+  // Um resumo zerado/antigo vindo da API nao pode sobrescrever Status/Observacao.
+  var real=rows.filter(temEvidencia).length;
+  var vazias=rows.length-real;
+  var comFotos=rows.filter(temFotos).length;
+  var comLista=rows.filter(temLista).length;
+  var ambos=rows.filter(temAmbos).length;
   var p=pct(real,rows.length);
   document.getElementById('kpi-row').innerHTML=kpi(TERR.length,'Núcleos')+kpi((D&&D.config&&D.config['Total de Cursos'])||18,'Cursos')+kpi(rows.length||88,'Turmas')+kpi(real,'Turmas com evidência');
   document.getElementById('sc-txt').textContent=p+'%';
@@ -321,11 +347,13 @@ function renderEvidenciasDrive(){
     if(busca){var blob=(getv(r,'Territorio')+' '+getv(r,'Curso')+' '+getv(r,'Nome da Turma')).toLowerCase();if(blob.indexOf(busca)===-1)return false}
     return true;
   });
+  // Tambem aqui os indicadores sao calculados das linhas atuais, sem confiar em resumo stale.
+  var qtdEv=base.filter(temEvidencia).length, qtdAmbos=base.filter(temAmbos).length;
   document.getElementById('drive-kpis').innerHTML=
     '<div class="evid-kpi"><div class="num">'+base.length+'</div><div class="lab">pastas de turmas<br>monitoradas</div></div>'+ 
-    '<div class="evid-kpi"><div class="num">'+base.filter(temEvidencia).length+'</div><div class="lab">turmas com<br>evidência</div></div>'+ 
-    '<div class="evid-kpi"><div class="num">'+base.filter(temAmbos).length+'</div><div class="lab">com fotos +<br>lista de presença</div></div>'+ 
-    '<div class="evid-kpi"><div class="num">'+base.filter(function(r){return !temEvidencia(r)}).length+'</div><div class="lab">pastas ainda<br>vazias</div></div>';
+    '<div class="evid-kpi"><div class="num">'+qtdEv+'</div><div class="lab">turmas com<br>evidência</div></div>'+ 
+    '<div class="evid-kpi"><div class="num">'+qtdAmbos+'</div><div class="lab">com fotos +<br>lista de presença</div></div>'+ 
+    '<div class="evid-kpi"><div class="num">'+Math.max(0,base.length-qtdEv)+'</div><div class="lab">pastas ainda<br>vazias</div></div>';
   if(!rows.length){document.getElementById('drive-evidencias-content').innerHTML='<div class="card" style="color:#666;font-size:13px">Nenhuma pasta encontrada para este filtro.</div>';return}
   var grupos={};rows.forEach(function(r){var t=getv(r,'Territorio')||'-';(grupos[t]=grupos[t]||[]).push(r)});
   var h=''; Object.keys(grupos).sort().forEach(function(t){var lista=grupos[t],ev=lista.filter(temEvidencia).length;h+='<div class="drive-terr"><div class="drive-terr-head"><div class="drive-terr-title">'+esc(t)+'</div><div class="drive-terr-meta">'+ev+' de '+lista.length+' com evidência neste filtro</div></div><div class="drive-comp"><div class="drive-grid">';lista.forEach(function(r){h+=cardDrive(r)});h+='</div></div></div>'});
@@ -336,7 +364,7 @@ function renderEstrutura(){var h='<div class="estrutura-grid">';TERR.forEach(fun
 
 function renderMetas(){var metas=MT(),el=document.getElementById('tbl-metas');if(!metas.length){el.innerHTML='<div class="card" style="color:#666;font-size:13px">Metas ainda não disponíveis.</div>';return}var grupos={};TERR.forEach(function(t){grupos[t]=[]});metas.forEach(function(m){var t=getv(m,'Territorio')||'Outras';(grupos[t]=grupos[t]||[]).push(m)});var h='<div class="notice" style="margin-bottom:18px"><strong>Regra desta tela:</strong> o realizado informado na aba METAS é exibido exatamente como está na Planilha de Conformidade. O painel não cria quantitativos novos.</div>';Object.keys(grupos).forEach(function(t){if(!grupos[t].length)return;h+='<div class="metas-group"><div class="metas-group-title">'+esc(t)+'</div><div class="metas-grid">';grupos[t].forEach(function(m){var prev=Number(getv(m,'Quantidade de Turmas Prevista')||0),real=Number(getv(m,'Quantidade de Turmas Realizada')||0),p=pct(real,prev),st=getv(m,'Status')||'Pendente';h+='<div class="meta-card"><div class="meta-card-top"><div class="meta-id">'+esc(getv(m,'ID Meta')||'-')+'</div><span class="badge '+bcl(st)+'">'+esc(st)+'</span></div><div class="meta-title">'+esc(getv(m,'Curso')||'-')+'</div><div class="meta-numbers"><div class="meta-number"><div class="lab">Previsto</div><div class="val">'+prev+'</div></div><div class="meta-number real"><div class="lab">Realizado</div><div class="val">'+real+'</div></div></div><div class="meta-reading"><strong>Carga horária</strong><br>'+esc(getv(m,'Carga Horaria da Turma')||'-')+'h por turma · '+esc(getv(m,'Vagas por Turma')||'-')+' vagas por turma.</div><div class="meta-progress-row"><span>Progresso registrado</span><strong>'+real+' de '+prev+' · '+p+'%</strong></div><div class="sbw" style="height:9px"><div class="sb '+scl(p)+'" style="width:'+Math.min(100,p)+'%"></div></div></div>'});h+='</div></div>'});el.innerHTML=h}
 
-function atualizarPainelSilenciosamente(){if(!APPS_SCRIPT_URL)return;fetch(APPS_SCRIPT_URL+'?action=api&_='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(data){D=data||{};prepararTerritorios();renderAll();marcarAtualizacao()}).catch(function(err){console.error('Atualização automática do SMPC:',err)})}
+function atualizarPainelSilenciosamente(){if(!APPS_SCRIPT_URL)return;fetch(APPS_SCRIPT_URL+'?action=api&_='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(data){D=data||{};prepararTerritorios();validarApi();renderAll();marcarAtualizacao()}).catch(function(err){console.error('Atualização automática do SMPC:',err)})}
 function iniciarAtualizacaoAutomatica(){if(window.__SMPC_NER_REFRESH__)clearInterval(window.__SMPC_NER_REFRESH__);window.__SMPC_NER_REFRESH__=setInterval(atualizarPainelSilenciosamente,5*60*1000)}
 window.addEventListener('DOMContentLoaded',function(){if(sessionStorage.getItem('ner_ok')==='1'){document.getElementById('pwd').classList.add('off');carregarApp()}else{document.getElementById('ld').classList.add('off');setTimeout(function(){var f=document.getElementById('pf');if(f)f.focus()},100)}})
 </script>
